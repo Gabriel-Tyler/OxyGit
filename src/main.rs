@@ -7,7 +7,7 @@ use std::fs;
 use std::io::{BufRead, BufReader, Read, Write};
 
 #[derive(Debug, Parser)]
-#[command(name = "mygit")]
+#[command(name = "oxygit")]
 #[command(about = "My custom Git CLI", long_about = None)]
 struct Args {
     #[command(subcommand)]

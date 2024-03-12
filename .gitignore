@@ -1,2 +1,4 @@
 /target
-/ogit
+/ogit/refs/
+/ogit/FETCH_HEAD
+/ogit/HEAD
