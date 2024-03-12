@@ -1,8 +1,10 @@
-use std::fs;
-use std::io;
-use std::io::Read;
-use flate2::read::ZlibDecoder;
+use anyhow;
+use anyhow::Context;
 use clap::{Parser, Subcommand};
+use flate2::read::ZlibDecoder;
+use std::ffi::CStr;
+use std::fs;
+use std::io::{BufRead, BufReader, Read, Write};
 
 #[derive(Debug, Parser)]
 #[command(name = "mygit")]
@@ -25,7 +27,7 @@ enum Commands {
     },
 }
 
-fn main() {
+fn main() -> anyhow::Result<()> {
     let args = Args::parse();
     match args.command {
         Commands::Init => {
@@ -34,26 +36,43 @@ fn main() {
             fs::create_dir("ogit/refs").unwrap();
             fs::write("ogit/HEAD", "ref: refs/heads/main\n").unwrap();
             println!("Initialized ogit directory");
-        },
-        Commands::CatFile { pretty_print, object_hash } => {
-            if pretty_print {
-                // read contents of blob obj file from .git/objects
-                let (prefix, rest) = object_hash.split_at(2);
-                /* 
-                let encoded = fs::read_to_string(format!("ogit/objects/{prefix}/{rest}")).unwrap();
-                // decompress using Zlib and flate2
-                let decoded = decode_reader(encoded.into_bytes()).unwrap();
-                // extract relevent content and print (no \n)
-                print!("{decoded}");
-                */
-            }
         }
-    }
-}
-
-fn decode_reader(bytes: Vec<u8>) -> io::Result<String> {
-    let mut z = ZlibDecoder::new(&bytes[..]);
-    let mut s = String::new();
-    z.read_to_string(&mut s)?;
-    Ok(s)
+        Commands::CatFile {
+            pretty_print,
+            object_hash,
+        } => {
+            let (prefix, rest) = object_hash.split_at(2);
+            let f = fs::File::open(format!("ogit/objects/{prefix}/{rest}"))
+                .context("open in ogit/objects")?;
+            let z = ZlibDecoder::new(f);
+            let mut z = BufReader::new(z);
+            let mut buf = Vec::new();
+            z.read_until(0, &mut buf)
+                .context("read header from ogit/objects")?;
+            let header = CStr::from_bytes_with_nul(&buf)
+                .expect("know there is exactly one null, and it is at the end.");
+            let header = header
+                .to_str()
+                .context("ogit/objects file header isn't valid UTF-8")?;
+            let Some(size) = header.strip_prefix("blob ") else {
+                anyhow::bail!("ogit/objects file header did not start with 'blob ': '{header}'");
+            };
+            let size = size
+                .parse::<usize>()
+                .context("ogit/objects file header has invalid size: {size}")?;
+            buf.clear();
+            buf.resize(size, 0);
+            z.read_exact(&mut buf[..])
+                .context("read true contents of ogit/objects file")?;
+            let n = z
+                .read(&mut [0])
+                .context("validate EOF in ogit/object file")?;
+            anyhow::ensure!(n == 0, "ogit/object file had {n} trailing bytes");
+            std::io::stdout()
+                .lock()
+                .write_all(&buf)
+                .context("write object contents to stdout")?;
+        }
+    };
+    Ok(())
 }
