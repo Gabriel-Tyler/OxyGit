@@ -3,6 +3,7 @@
 A custom Git implementation in Rust.
 
 Usage: `cargo run -- [COMMAND] ...`
+- Use `cargo run -- --help` for more information.
 
 Commands implemented so far:
 - `init`
