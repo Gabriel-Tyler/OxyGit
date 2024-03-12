@@ -5,9 +5,9 @@ A custom Git implementation in Rust.
 Usage: `cargo run -- [COMMAND] ...`
 
 Commands implemented so far:
-- init
-- cat-file
-  - example blob objects are stored in ogit/objects
+- `init`
+- `cat-file`
+  - Example blob objects are stored in ogit/objects
 
 This project is an exercise in understanding the Git data model and maintaining a large Rust project.
 
