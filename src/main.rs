@@ -27,6 +27,10 @@ enum Commands {
     },
 }
 
+enum Kind {
+    Blob,
+}
+
 fn main() -> anyhow::Result<()> {
     let args = Args::parse();
     match args.command {
@@ -58,9 +62,15 @@ fn main() -> anyhow::Result<()> {
                 .to_str()
                 .context("ogit/objects file header isn't valid UTF-8")?;
 
-            // extract the size in bytes from header
-            let Some(size) = header.strip_prefix("blob ") else {
-                anyhow::bail!("ogit/objects file header did not start with 'blob ': '{header}'");
+            // extract the kind of file and the size of contents
+            let Some((kind, size)) = header.split_once(' ') else {
+                anyhow::bail!(
+                    "ogit/objects file header did not start with a known type: '{header}'"
+                );
+            };
+            let kind = match kind {
+                "blob" => Kind::Blob,
+                _ => anyhow::bail!("we do not yet know how to print a '{kind}'"),
             };
             let size = size
                 .parse::<usize>()
@@ -68,21 +78,25 @@ fn main() -> anyhow::Result<()> {
 
             // read `size` bytes into buffer, these bytes don't have to be UTF-8 (picture, etc.)
             buf.clear();
-            buf.resize(size, 0);
+            buf.resize(size, 0); // allocate all zeros then overrite (MaybeUninit optimization?)
             z.read_exact(&mut buf[..])
                 .context("read true contents of ogit/objects file")?;
 
             // the last
             let n = z
                 .read(&mut [0])
-                .context("validate EOF in ogit/object file")?;
-            anyhow::ensure!(n == 0, "ogit/object file had {n} trailing byte(s) read");
+                .context("validate EOF in ogit/objects file")?;
+            anyhow::ensure!(n == 0, "ogit/objects file had {n} trailing byte(s) read");
 
-            // write bytes, no \n
-            std::io::stdout()
-                .lock()
-                .write_all(&buf)
-                .context("write object contents to stdout")?;
+            let stdout = std::io::stdout();
+            let mut stdout = stdout.lock();
+
+            match kind {
+                // write bytes, no \n
+                Kind::Blob => stdout
+                    .write_all(&buf)
+                    .context("write object contents to stdout")?,
+            }
         }
     };
     Ok(())
