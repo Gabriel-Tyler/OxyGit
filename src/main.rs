@@ -45,6 +45,8 @@ fn main() -> anyhow::Result<()> {
             pretty_print,
             object_hash,
         } => {
+            anyhow::ensure!(pretty_print, "mode must be given (hint: use -p)");
+
             // open the file and decode contents
             let (prefix, rest) = object_hash.split_at(2);
             let f = fs::File::open(format!(".git/objects/{prefix}/{rest}"))
