@@ -4,7 +4,7 @@ use clap::{Parser, Subcommand};
 use flate2::read::ZlibDecoder;
 use std::ffi::CStr;
 use std::fs;
-use std::io::{BufRead, BufReader, Read, Write};
+use std::io::{BufRead, BufReader, Read};
 
 #[derive(Debug, Parser)]
 #[command(name = "oxygit")]
@@ -27,6 +27,7 @@ enum Commands {
     },
 }
 
+#[derive(Debug)]
 enum Kind {
     Blob,
 }
@@ -75,31 +76,25 @@ fn main() -> anyhow::Result<()> {
                 _ => anyhow::bail!("we do not yet know how to print a '{kind}'"),
             };
             let size = size
-                .parse::<usize>()
+                .parse::<u64>()
                 .context(".git/objects file header has invalid size: {size}")?;
 
-            // read `size` bytes into buffer, these bytes don't have to be UTF-8 (picture, etc.)
-            buf.clear();
-            buf.resize(size, 0); // allocate all zeros then overrite (MaybeUninit optimization?)
-            z.read_exact(&mut buf[..])
-                .context("read true contents of .git/objects file")?;
-
-            // the last
-            let n = z
-                .read(&mut [0])
-                .context("validate EOF in .git/objects file")?;
-            anyhow::ensure!(n == 0, ".git/objects file had {n} trailing byte(s) read");
-
-            let stdout = std::io::stdout();
-            let mut stdout = stdout.lock();
-
+            // NOTE: won't error if decompressed file is too long, but will not spam stdout
+            //   and be vulnerable to a zipbomb. 
+            let mut z = z.take(size);
             match kind {
-                // write bytes, no \n
-                Kind::Blob => stdout
-                    .write_all(&buf)
-                    .context("write object contents to stdout")?,
+                Kind::Blob => {
+                    let stdout = std::io::stdout();
+                    let mut stdout = stdout.lock();
+                    let n = std::io::copy(&mut z, &mut stdout)
+                        .context("write .git/objects file into stdout")?;
+                    anyhow::ensure!(
+                        n == size, 
+                        ".git/objects file was not the expected size (expected: {size}, actual: {n})"
+                    );
+                }
             }
         }
-    };
+    }
     Ok(())
 }
