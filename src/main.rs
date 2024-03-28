@@ -1,10 +1,13 @@
-use anyhow;
 use anyhow::Context;
 use clap::{Parser, Subcommand};
 use flate2::read::ZlibDecoder;
+use flate2::write::ZlibEncoder;
+use flate2::Compression;
+use sha1::{Digest, Sha1};
 use std::ffi::CStr;
 use std::fs;
-use std::io::{BufRead, BufReader, Read};
+use std::io::{BufRead, BufReader, Read, Write};
+use std::path::{Path, PathBuf};
 
 #[derive(Debug, Parser)]
 #[command(name = "oxygit")]
@@ -16,14 +19,18 @@ struct Args {
 
 #[derive(Debug, Subcommand)]
 enum Commands {
-    // Clone
-    // Push
-    // Add
     Init,
     CatFile {
         #[arg(short = 'p')]
         pretty_print: bool,
         object_hash: String,
+    },
+    HashObject {
+        #[arg(short = 'w')]
+        write: bool,
+        path: PathBuf,
+        // TODO: -t <type>, e.g, -t commit
+        //   by default, type = blob
     },
 }
 
@@ -80,8 +87,9 @@ fn main() -> anyhow::Result<()> {
                 .context(".git/objects file header has invalid size: {size}")?;
 
             // NOTE: won't error if decompressed file is too long, but will not spam stdout
-            //   and be vulnerable to a zipbomb. 
+            //   and be vulnerable to a zipbomb.
             let mut z = z.take(size);
+            // Output contents of file based on type of file.
             match kind {
                 Kind::Blob => {
                     let stdout = std::io::stdout();
@@ -89,12 +97,79 @@ fn main() -> anyhow::Result<()> {
                     let n = std::io::copy(&mut z, &mut stdout)
                         .context("write .git/objects file into stdout")?;
                     anyhow::ensure!(
-                        n == size, 
+                        n == size,
                         ".git/objects file was not the expected size (expected: {size}, actual: {n})"
                     );
                 }
             }
         }
+        Commands::HashObject { write, path } => {
+            // by default, type of file is blob
+
+            fn write_blob<W: Write>(path: &Path, writer: W) -> anyhow::Result<String> {
+                let stat =
+                    fs::metadata(path).with_context(|| format!("stat {}", path.display()))?;
+                let size = stat.len();
+
+                let writer = ZlibEncoder::new(writer, Compression::default());
+                let mut writer = HashWriter {
+                    writer,
+                    hasher: Sha1::new(),
+                };
+
+                // write header
+                write!(writer, "blob {size}\0")?;
+
+                // write body
+                let mut file = std::fs::File::open(&path)?;
+                std::io::copy(&mut file, &mut writer).context("stream file into blob")?;
+
+                // flush compress and hash
+                let hash = writer.hasher.finalize();
+                writer.writer.finish()?;
+
+                Ok(hex::encode(hash))
+            }
+
+            let hash = if write {
+                let tmp = "temporary"; // ideally random name
+                let hash = write_blob(
+                    &path,
+                    fs::File::create(tmp).context("construct temp file for blob")?,
+                )
+                .context("write blob object to temp file")?;
+                fs::create_dir_all(format!(".git/objects/{}/", &hash[..2]))
+                    .context("create subdir of .git/objects")?;
+                fs::rename(tmp, format!(".git/objects/{}/{}", &hash[..2], &hash[2..]))
+                    .context("move blob file into .git/objects")?;
+                hash
+            } else {
+                // sink consume into the void
+                write_blob(&path, std::io::sink()).context("write out blob object")?
+            };
+
+            println!("{hash}");
+        }
     }
     Ok(())
+}
+
+struct HashWriter<W> {
+    writer: W,
+    hasher: Sha1,
+}
+
+impl<W> Write for HashWriter<W>
+where
+    W: Write,
+{
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        let n = self.writer.write(buf)?;
+        self.hasher.update(&buf[..n]);
+        Ok(n)
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        self.writer.flush()
+    }
 }
