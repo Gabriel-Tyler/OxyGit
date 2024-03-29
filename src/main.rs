@@ -1,7 +1,7 @@
 use clap::{Parser, Subcommand};
 use std::path::PathBuf;
 
-mod commands;
+pub(crate) mod commands;
 
 #[derive(Debug, Parser)]
 #[command(name = "oxygit")]

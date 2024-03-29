@@ -9,7 +9,7 @@ enum Kind {
     Blob,
 }
 
-pub fn invoke(pretty_print: bool, object_hash: &str) -> anyhow::Result<()> {
+pub(crate) fn invoke(pretty_print: bool, object_hash: &str) -> anyhow::Result<()> {
     anyhow::ensure!(pretty_print, "mode must be given (hint: use -p)");
 
     // open the file and decode contents

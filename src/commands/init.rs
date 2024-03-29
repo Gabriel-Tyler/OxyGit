@@ -1,7 +1,7 @@
 use anyhow::Context;
 use std::fs;
 
-pub fn invoke() -> anyhow::Result<()> {
+pub(crate) fn invoke() -> anyhow::Result<()> {
     fs::create_dir(".git").context("create .git dir")?;
     fs::create_dir(".git/objects").context("create .git/objects dir")?;
     fs::create_dir(".git/refs").context("create .git/refs dir")?;

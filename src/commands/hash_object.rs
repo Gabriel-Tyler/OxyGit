@@ -3,7 +3,7 @@ use flate2::{write::ZlibEncoder, Compression};
 use sha1::{Digest, Sha1};
 use std::{fs, io::Write, path::Path};
 
-pub fn invoke(write: bool, path: &Path) -> anyhow::Result<()> {
+pub(crate) fn invoke(write: bool, path: &Path) -> anyhow::Result<()> {
     // by default, type of file is blob
 
     fn write_blob<W: Write>(path: &Path, writer: W) -> anyhow::Result<String> {
@@ -19,7 +19,7 @@ pub fn invoke(write: bool, path: &Path) -> anyhow::Result<()> {
         // write header
         write!(writer, "blob {size}\0")?;
         // write body
-        let mut file = std::fs::File::open(&path)?;
+        let mut file = std::fs::File::open(path)?;
         std::io::copy(&mut file, &mut writer).context("stream file into blob")?;
 
         // flush hash and compress
@@ -32,7 +32,7 @@ pub fn invoke(write: bool, path: &Path) -> anyhow::Result<()> {
     let hash = if write {
         let tmp = "temporary"; // ideally random name
         let hash = write_blob(
-            &path,
+            path,
             fs::File::create(tmp).context("construct temp file for blob")?,
         )
         .context("write blob object to temp file")?;
@@ -43,7 +43,7 @@ pub fn invoke(write: bool, path: &Path) -> anyhow::Result<()> {
         hash
     } else {
         // sink consume into the void
-        write_blob(&path, std::io::sink()).context("write out blob object")?
+        write_blob(path, std::io::sink()).context("write out blob object")?
     };
 
     println!("{hash}");
