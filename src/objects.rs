@@ -1,13 +1,13 @@
+use anyhow::Context;
 use core::fmt;
+use flate2::read::ZlibDecoder;
 use std::{
     ffi::CStr,
     fs,
     io::{BufRead, BufReader, Read},
 };
 
-use anyhow::Context;
-use flate2::read::ZlibDecoder;
-
+#[derive(Debug, PartialEq, Eq)]
 pub(crate) enum Kind {
     Blob,
     Tree,
@@ -66,7 +66,7 @@ impl Object<()> {
         //   and be vulnerable to a zipbomb.
         let z = z.take(size);
         Ok(Object {
-            kind: kind,
+            kind,
             expected_size: size,
             reader: z,
         })
