@@ -26,6 +26,11 @@ enum Commands {
         // TODO: -t <type>, e.g, -t commit
         //   by default, type = blob
     },
+    LsTree {
+        #[clap(long)]
+        name_only: bool,
+        tree_hash: String,
+    },
 }
 
 fn main() -> anyhow::Result<()> {
@@ -42,6 +47,12 @@ fn main() -> anyhow::Result<()> {
         }
         Commands::HashObject { write, path } => {
             commands::hash_object::invoke(write, &path)?;
+        }
+        Commands::LsTree {
+            name_only,
+            tree_hash,
+        } => {
+            commands::ls_tree::invoke(name_only, &tree_hash)?;
         }
     }
     Ok(())
