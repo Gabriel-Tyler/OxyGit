@@ -9,7 +9,7 @@ use crate::objects::{Kind, Object};
 
 pub(crate) fn invoke(name_only: bool, tree_hash: &str) -> anyhow::Result<()> {
     // print all direct children of given tree object (one level)
-    anyhow::ensure!(name_only, "only --name-only is supported for now");
+    // anyhow::ensure!(name_only, "only --name-only is supported for now");
 
     let mut object = Object::read(tree_hash).context("parse out tree object file")?;
     match object.kind {
@@ -46,12 +46,14 @@ pub(crate) fn invoke(name_only: bool, tree_hash: &str) -> anyhow::Result<()> {
                         .write_all(name)
                         .context("write name of tree entry ot stdout")?;
                 } else {
-                    stdout
-                        .write_all(mode)
-                        .context("write mode of tree entry ot stdout")?;
-                    let kind = "tree";
+                    let mode = std::str::from_utf8(mode).context("mode always valid utf-8")?;
                     let hash = hex::encode(&hashbuf);
-                    write!(stdout, " {kind} {hash} ")
+                    let kind = Object::read(&hash)
+                        .with_context(|| {
+                            format!("construct object from hash of tree entry {hash}")
+                        })?
+                        .kind;
+                    write!(stdout, "{mode:0>6} {kind} {hash}\t")
                         .context("tree entry kind and hash to stdout")?;
                     stdout
                         .write_all(name)
