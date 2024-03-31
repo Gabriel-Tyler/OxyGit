@@ -1,10 +1,11 @@
 use anyhow::Context;
 use core::fmt;
-use flate2::read::ZlibDecoder;
+use flate2::{read::ZlibDecoder, write::ZlibEncoder, Compression};
+use sha1::{Digest, Sha1};
 use std::{
     ffi::CStr,
     fs,
-    io::{BufRead, BufReader, Read},
+    io::{BufRead, BufReader, Read, Write},
 };
 
 #[derive(Debug, PartialEq, Eq)]
@@ -70,5 +71,49 @@ impl Object<()> {
             expected_size: size,
             reader: z,
         })
+    }
+}
+
+impl<R> Object<R>
+where
+    R: Read,
+{
+    pub(crate) fn write(mut self, writer: impl Write) -> anyhow::Result<[u8; 20]> {
+        // wrap writer in zlib encoder and hasher
+        let writer = ZlibEncoder::new(writer, Compression::default());
+        let mut writer = HashWriter {
+            writer,
+            hasher: Sha1::new(),
+        };
+
+        // write header and body
+        write!(writer, "blob {} {}\0", self.kind, self.expected_size)?;
+        std::io::copy(&mut self.reader, &mut writer).context("stream file into blob")?;
+
+        // flush hash and compress
+        writer.writer.finish()?;
+        let hash = writer.hasher.finalize();
+
+        Ok(hash.into())
+    }
+}
+
+struct HashWriter<W> {
+    writer: W,
+    hasher: Sha1,
+}
+
+impl<W> Write for HashWriter<W>
+where
+    W: Write,
+{
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        let n = self.writer.write(buf)?;
+        self.hasher.update(&buf[..n]);
+        Ok(n)
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        self.writer.flush()
     }
 }
