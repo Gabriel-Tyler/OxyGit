@@ -7,8 +7,9 @@ Usage: `cargo run -- [COMMAND] ...`
 
 Commands implemented so far:
 - `init`
-- `cat-file`
-  - Example blob objects are stored in ogit/objects
+- `cat-file -p <SHA1_HASH>`
+- `hash-object [-w] <PATH>`
+- `ls-tree [--name-only] <SHA1_HASH>`
 
 This project is an exercise in understanding the Git data model and maintaining a large Rust project.
 
