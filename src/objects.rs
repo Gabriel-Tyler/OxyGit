@@ -87,7 +87,7 @@ where
         };
 
         // write header and body
-        write!(writer, "blob {} {}\0", self.kind, self.expected_size)?;
+        write!(writer, "{} {}\0", self.kind, self.expected_size)?;
         std::io::copy(&mut self.reader, &mut writer).context("stream file into blob")?;
 
         // flush hash and compress
