@@ -110,6 +110,22 @@ where
 
         Ok(hash.into())
     }
+
+    pub(crate) fn write_to_objects(self) -> anyhow::Result<[u8; 20]> {
+        let tmp = "temporary"; // ideally random name
+        let hash = self
+            .write(fs::File::create(tmp).context("construct temp file for tree")?)
+            .context("stream tree object into tree object file")?;
+        let hash_hex = hex::encode(hash);
+        fs::create_dir_all(format!(".git/objects/{}/", &hash_hex[..2]))
+            .context("create subdir of .git/objects")?;
+        fs::rename(
+            tmp,
+            format!(".git/objects/{}/{}", &hash_hex[..2], &hash_hex[2..]),
+        )
+        .context("move tree file into .git/objects")?;
+        Ok(hash)
+    }
 }
 
 struct HashWriter<W> {
