@@ -6,6 +6,7 @@ use std::{
     ffi::CStr,
     fs,
     io::{BufRead, BufReader, Read, Write},
+    path::Path,
 };
 
 #[derive(Debug, PartialEq, Eq)]
@@ -32,6 +33,19 @@ pub(crate) struct Object<R> {
 }
 
 impl Object<()> {
+    // may want to return a buffered reader
+    pub(crate) fn blob_from_file(file: impl AsRef<Path>) -> anyhow::Result<Object<impl Read>> {
+        let file = file.as_ref();
+        let stat = fs::metadata(file).with_context(|| format!("stat {}", file.display()))?;
+
+        // TODO: technically a race condition if file changes between stat and write
+        let file = std::fs::File::open(file).with_context(|| format!("open {}", file.display()))?;
+        Ok(Object {
+            kind: Kind::Blob,
+            expected_size: stat.len(),
+            reader: file,
+        })
+    }
     pub(crate) fn read(hash: &str) -> anyhow::Result<Object<impl BufRead>> {
         let (prefix, rest) = hash.split_at(2);
         let f = fs::File::open(format!(".git/objects/{prefix}/{rest}"))
