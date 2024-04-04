@@ -49,7 +49,7 @@ impl Object<()> {
     pub(crate) fn read(hash: &str) -> anyhow::Result<Object<impl BufRead>> {
         let (prefix, rest) = hash.split_at(2);
         let f = fs::File::open(format!(".git/objects/{prefix}/{rest}"))
-            .context("open in .git/objects")?;
+            .with_context(|| format!(".git/objects/{prefix}/{rest}"))?;
         let z = ZlibDecoder::new(f);
         let mut z = BufReader::new(z);
         let mut buf = Vec::new();
