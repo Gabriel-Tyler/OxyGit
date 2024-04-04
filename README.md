@@ -10,6 +10,7 @@ Commands implemented so far:
 - `cat-file -p <SHA1_HASH>`
 - `hash-object [-w] <PATH>`
 - `ls-tree [--name-only] <SHA1_HASH>`
+- `write-tree`
 
 This project is an exercise in understanding the Git data model and maintaining a large Rust project.
 
