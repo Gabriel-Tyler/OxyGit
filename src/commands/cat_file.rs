@@ -19,7 +19,7 @@ pub(crate) fn invoke(pretty_print: bool, object_hash: &str) -> anyhow::Result<()
                 object.expected_size
             );
         }
-        _ => anyhow::bail!("don't yet know how to print'{}'", object.kind),
+        _ => anyhow::bail!("don't yet know how to print '{}'", object.kind),
     }
     Ok(())
 }

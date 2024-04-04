@@ -27,7 +27,8 @@ fn write_tree_for(path: &Path) -> anyhow::Result<Option<[u8; 20]>> {
     let mut tree_object = Vec::new();
     for entry in entries {
         let file_name = entry.file_name();
-        if file_name == ".git" {
+        // also program looking through .gitignore
+        if file_name == ".git" || file_name == "target" {
             // skip the .git dir
             continue;
         }
