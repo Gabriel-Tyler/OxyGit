@@ -9,12 +9,12 @@ pub(crate) fn invoke(write: bool, file: &Path) -> anyhow::Result<()> {
     let hash = if write {
         object
             .write_to_objects()
-            .context("stream file into blob object file")?
+            .context("stream object into blob object file")?
     } else {
         // sink consume into the void
         object
             .write(std::io::sink())
-            .context("stream file into blob object")?
+            .context("stream object into void")?
     };
 
     println!("{}", hex::encode(hash));

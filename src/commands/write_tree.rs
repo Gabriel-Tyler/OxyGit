@@ -12,6 +12,10 @@ fn write_tree_for(path: &Path) -> anyhow::Result<Option<[u8; 20]>> {
     while let Some(entry) = dir.next() {
         let entry = entry.with_context(|| format!("bad directory entry in {}", path.display()))?;
         let file_name = entry.file_name();
+        if file_name == ".git" {
+            // skip the .git dir
+            continue;
+        }
         let meta = entry.metadata().context("metadata for directory entry")?;
         let mode = if meta.is_dir() {
             "40000"
@@ -31,6 +35,10 @@ fn write_tree_for(path: &Path) -> anyhow::Result<Option<[u8; 20]>> {
             };
             hash
         } else {
+            // let hash = Object::blob_from_file(&path)
+            //     .context("open blob input file")?
+            //     .write_to_objects()
+            //     .context("stream object into file")?;
             let tmp = "temporary"; // ideally random name
             let hash = Object::blob_from_file(&path)
                 .context("open blob input file")?
@@ -68,5 +76,9 @@ fn write_tree_for(path: &Path) -> anyhow::Result<Option<[u8; 20]>> {
 }
 
 pub(crate) fn invoke() -> anyhow::Result<()> {
+    let Some(hash) = write_tree_for(Path::new(".")).context("construct root tree object")? else {
+        anyhow::bail!("asked to make tree object for empty tree")
+    };
+    println!("{}", hex::encode(hash));
     Ok(())
 }
