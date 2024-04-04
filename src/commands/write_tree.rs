@@ -55,19 +55,6 @@ fn write_tree_for(path: &Path) -> anyhow::Result<Option<[u8; 20]>> {
                 .context("open blob input file")?
                 .write_to_objects()
                 .context("stream object into file")?;
-            // let tmp = "temporary"; // ideally random name
-            // let hash = Object::blob_from_file(&path)
-            //     .context("open blob input file")?
-            //     .write(fs::File::create(tmp).context("construct temp file for blob")?)
-            //     .context("stream file into blob")?;
-            // let hash_hex = hex::encode(hash);
-            // fs::create_dir_all(format!(".git/objects/{}/", &hash_hex[..2]))
-            //     .context("create subdir of .git/objects")?;
-            // fs::rename(
-            //     tmp,
-            //     format!(".git/objects/{}/{}", &hash_hex[..2], &hash_hex[2..]),
-            // )
-            // .context("move blob file into .git/objects")?;
             hash
         };
         tree_object.extend(mode.as_bytes());
